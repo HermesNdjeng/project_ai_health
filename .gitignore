@@ -1,0 +1,5 @@
+virtual_env/
+data/
+VERTEBRAE_HEART_SCALES_ANNOTATIONS_MT.xlsx
+.DS_Store
+filtered_data/
