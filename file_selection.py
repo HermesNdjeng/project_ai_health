@@ -3,7 +3,7 @@ import pandas as pd
 import shutil
 
 excel_files = "./VERTEBRAE_HEART_SCALES_ANNOTATIONS_MT.xlsx"
-annotated_images_folder = "./data"
+annotated_images_folder = "C:/Users/nzooh/Downloads/OK_images/OK_images"
 output_folder = "./filtered_data"
 
 df = pd.read_excel(excel_files)
