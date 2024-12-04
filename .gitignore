@@ -1,8 +1,10 @@
-env/
+virtual_env/
 VERTEBRAE_HEART_SCALES_ANNOTATIONS_MT.xlsx
 .DS_Store
 filtered_data/
 filtered_data_png/
+vertebrae-yolo-dataset/
 filtered_data_png.zip
 requirements.txt
 labels/
+data/
