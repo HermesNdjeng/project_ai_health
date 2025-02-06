@@ -11,21 +11,23 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 
 # Paths
 image_dir = "vertebrae-yolo-dataset/train/images"
-ground_truth_dir = "vertebrae-yolo-dataset/train/ground_truth"
+ground_truth_dir = "vertebrae-yolo-dataset/train/ground_truth_annotated"
 CHECKPOINT_DIR = "checkpoints"
 BEST_MODEL_DIR = "best_model"
 
 # Dimensions des images (par exemple, 512x512)
 img_width = 512
 img_height = 512
+num_classes = 3  # Nombre de classes (par exemple, fond, cœur, vertèbres)
 
 # Générateur de données
 class DataGenerator(Sequence):
-    def __init__(self, image_dir, ground_truth_dir, batch_size=32, img_size=(512, 512), shuffle=True):
+    def __init__(self, image_dir, ground_truth_dir, batch_size=32, img_size=(512, 512), num_classes=3, shuffle=True):
         self.image_dir = image_dir
         self.ground_truth_dir = ground_truth_dir
         self.batch_size = batch_size
         self.img_size = img_size
+        self.num_classes = num_classes
         self.shuffle = shuffle
         self.image_filenames = [f for f in os.listdir(image_dir) if f.endswith(".jpg") or f.endswith(".png")]
         self.on_epoch_end()
@@ -58,15 +60,21 @@ class DataGenerator(Sequence):
             if image is not None and mask is not None:
                 image = cv2.resize(image, self.img_size)
                 mask = cv2.resize(mask, self.img_size)
+
+                # Convertir le masque en one-hot encoding
+                mask_one_hot = np.zeros((*self.img_size, self.num_classes), dtype=np.uint8)
+                for c in range(self.num_classes):
+                    mask_one_hot[:, :, c] = (mask == c).astype(np.uint8)
+
                 images.append(image / 255.0)
-                masks.append(mask / 255.0)
+                masks.append(mask_one_hot)
 
         images = np.array(images)
-        masks = np.expand_dims(np.array(masks), axis=-1)
+        masks = np.array(masks)
         return images, masks
 
 # Define U-Net model
-def unet_model(input_size=(512, 512, 3)):
+def unet_model(input_size=(512, 512, 3), num_classes=3):
     inputs = Input(input_size)
     conv1 = Conv2D(64, 3, activation='relu', padding='same')(inputs)
     conv1 = Conv2D(64, 3, activation='relu', padding='same')(conv1)
@@ -103,19 +111,19 @@ def unet_model(input_size=(512, 512, 3)):
     conv9 = Conv2D(64, 3, activation='relu', padding='same')(up9)
     conv9 = Conv2D(64, 3, activation='relu', padding='same')(conv9)
 
-    conv10 = Conv2D(1, 1, activation='sigmoid')(conv9)
+    conv10 = Conv2D(num_classes, 1, activation='softmax')(conv9)
 
     model = Model(inputs=[inputs], outputs=[conv10])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
 def main():
     # Create data generators
-    train_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height))
-    val_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height), shuffle=False)
+    train_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height), num_classes=num_classes)
+    val_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height), num_classes=num_classes, shuffle=False)
 
     # Create and train the model
-    model = unet_model()
+    model = unet_model(input_size=(img_width, img_height, 3), num_classes=num_classes)
 
     # ----------------------------
     #   CHECKPOINT MANAGEMENT
@@ -158,7 +166,7 @@ def main():
         )
     ]
 
-    model.fit(train_generator, epochs=50, validation_data=val_generator, callbacks=callbacks)
+    model.fit(train_generator, epochs=5, validation_data=val_generator, callbacks=callbacks)
 
     # Save the final model
     model.save('vertebrae_heart_segmentation_model.h5')
