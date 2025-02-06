@@ -4,6 +4,7 @@ import cv2
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate
 from tensorflow.keras.models import Model
+from tensorflow.keras.utils import Sequence
 
 # Vérifier si TensorFlow utilise le GPU
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
@@ -14,23 +15,58 @@ ground_truth_dir = "vertebrae-yolo-dataset/train/ground_truth"
 CHECKPOINT_DIR = "checkpoints"
 BEST_MODEL_DIR = "best_model"
 
-# Load dataset
-def load_dataset(image_dir, ground_truth_dir):
-    images = []
-    masks = []
-    for filename in os.listdir(image_dir):
-        if filename.endswith(".png"):
-            image_path = os.path.join(image_dir, filename)
-            mask_path = os.path.join(ground_truth_dir, filename)
+# Dimensions des images (par exemple, 512x512)
+img_width = 512
+img_height = 512
+
+# Générateur de données
+class DataGenerator(Sequence):
+    def __init__(self, image_dir, ground_truth_dir, batch_size=32, img_size=(512, 512), shuffle=True):
+        self.image_dir = image_dir
+        self.ground_truth_dir = ground_truth_dir
+        self.batch_size = batch_size
+        self.img_size = img_size
+        self.shuffle = shuffle
+        self.image_filenames = [f for f in os.listdir(image_dir) if f.endswith(".jpg") or f.endswith(".png")]
+        self.on_epoch_end()
+
+    def __len__(self):
+        return int(np.floor(len(self.image_filenames) / self.batch_size))
+
+    def __getitem__(self, index):
+        batch_filenames = self.image_filenames[index * self.batch_size:(index + 1) * self.batch_size]
+        images, masks = self.__data_generation(batch_filenames)
+        if len(images) == 0 or len(masks) == 0:
+            return self.__getitem__((index + 1) % self.__len__())
+        return images, masks
+
+    def on_epoch_end(self):
+        if self.shuffle:
+            np.random.shuffle(self.image_filenames)
+
+    def __data_generation(self, batch_filenames):
+        images = []
+        masks = []
+        for filename in batch_filenames:
+            image_path = os.path.join(self.image_dir, filename)
+            mask_filename = filename.replace(".jpg", ".png").replace(".png", ".png")
+            mask_path = os.path.join(self.ground_truth_dir, mask_filename)
+
             image = cv2.imread(image_path, cv2.IMREAD_COLOR)
             mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-            print("letype des images", type(image), type(mask))
-            images.append(image)
-            masks.append(mask)
-    return np.array(images), np.array(masks)
+
+            if image is not None and mask is not None:
+                image = cv2.resize(image, self.img_size)
+                mask = cv2.resize(mask, self.img_size)
+                images.append(image / 255.0)
+                masks.append(mask / 255.0)
+
+        images = np.array(images)
+        masks = np.expand_dims(np.array(masks), axis=-1)
+        return images, masks
 
 # Define U-Net model
-def unet_model(input_size=(1024, 1024, 3)):
+def unet_model(input_size=(512, 512, 3)):
     inputs = Input(input_size)
     conv1 = Conv2D(64, 3, activation='relu', padding='same')(inputs)
     conv1 = Conv2D(64, 3, activation='relu', padding='same')(conv1)
@@ -74,10 +110,9 @@ def unet_model(input_size=(1024, 1024, 3)):
     return model
 
 def main():
-    # Prepare dataset
-    images, masks = load_dataset(image_dir, ground_truth_dir)
-    images = images / 255.0  # Normalize images
-    masks = masks / 255.0  # Normalize masks
+    # Create data generators
+    train_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height))
+    val_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height), shuffle=False)
 
     # Create and train the model
     model = unet_model()
@@ -115,10 +150,15 @@ def main():
             save_weights_only=True,
             monitor='val_loss',
             mode='min'
+        ),
+        tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss',
+            patience=5,
+            restore_best_weights=True
         )
     ]
 
-    model.fit(images,masks,batch_size=2, epochs=50,callbacks=callbacks)
+    model.fit(train_generator, epochs=50, validation_data=val_generator, callbacks=callbacks)
 
     # Save the final model
     model.save('vertebrae_heart_segmentation_model.h5')
