@@ -2,23 +2,50 @@ import os
 import numpy as np
 import cv2
 import tensorflow as tf
+from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import Sequence
+import argparse
+import shutil
 
 # Vérifier si TensorFlow utilise le GPU
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
 # Paths
-image_dir = "vertebrae-yolo-dataset/train/images"
-ground_truth_dir = "vertebrae-yolo-dataset/train/ground_truth_annotated"
+train_image_dir = "vertebrae-yolo-dataset/train/images"
+valid_image_dir = "vertebrae-yolo-dataset/valid/images"
+train_ground_truth_dir = "vertebrae-yolo-dataset/train/ground_truth_annotated"
+valid_ground_truth_dir = "vertebrae-yolo-dataset/valid/ground_truth_annotated"
 CHECKPOINT_DIR = "checkpoints"
 BEST_MODEL_DIR = "best_model"
 
-# Dimensions des images (par exemple, 512x512)
+# Dimensions des images
 img_width = 512
 img_height = 512
-num_classes = 3  # Nombre de classes (par exemple, fond, cœur, vertèbres)
+num_classes = 3  # Fond, cœur, vertèbres
+
+# Fonction de perte Dice (plus stable pour la segmentation)
+def dice_loss(y_true, y_pred):
+    smooth = 1.
+    y_true_f = tf.reshape(y_true, [-1])
+    y_pred_f = tf.reshape(y_pred, [-1])
+    intersection = tf.reduce_sum(y_true_f * y_pred_f)
+    return 1 - (2. * intersection + smooth) / (tf.reduce_sum(y_true_f) + tf.reduce_sum(y_pred_f) + smooth)
+
+# Poids inverses à la fréquence des classes
+class_weights = [0.1, 0.45, 0.45]  # Exemple: fond=0.1, cœur=0.45, vertèbres=0.45
+
+# Fonction de perte pondérée
+def weighted_categorical_crossentropy(weights):
+    weights = K.variable(weights)
+    def loss(y_true, y_pred):
+        y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
+        y_pred = K.clip(y_pred, K.epsilon(), 1 - K.epsilon())
+        loss = y_true * K.log(y_pred) * weights
+        loss = -K.sum(loss, -1)
+        return loss
+    return loss
 
 # Générateur de données
 class DataGenerator(Sequence):
@@ -29,17 +56,34 @@ class DataGenerator(Sequence):
         self.img_size = img_size
         self.num_classes = num_classes
         self.shuffle = shuffle
-        self.image_filenames = [f for f in os.listdir(image_dir) if f.endswith(".jpg") or f.endswith(".png")]
+        
+        # Vérifier que les dossiers existent
+        if not os.path.exists(image_dir):
+            raise ValueError(f"Le dossier d'images n'existe pas: {image_dir}")
+        if not os.path.exists(ground_truth_dir):
+            raise ValueError(f"Le dossier d'annotations n'existe pas: {ground_truth_dir}")
+            
+        # Obtenir uniquement les fichiers qui ont à la fois une image et un masque
+        all_images = [f for f in os.listdir(image_dir) if f.endswith((".jpg", ".png"))]
+        self.image_filenames = []
+        
+        for img in all_images:
+            mask_path = os.path.join(ground_truth_dir, img.replace(".jpg", ".png").replace(".png", ".png"))
+            if os.path.exists(mask_path):
+                self.image_filenames.append(img)
+                
+        print(f"Trouvé {len(self.image_filenames)} images avec masques correspondants dans {image_dir}")
         self.on_epoch_end()
 
     def __len__(self):
-        return int(np.floor(len(self.image_filenames) / self.batch_size))
+        return max(1, int(np.floor(len(self.image_filenames) / self.batch_size)))
 
     def __getitem__(self, index):
         batch_filenames = self.image_filenames[index * self.batch_size:(index + 1) * self.batch_size]
         images, masks = self.__data_generation(batch_filenames)
         if len(images) == 0 or len(masks) == 0:
-            return self.__getitem__((index + 1) % self.__len__())
+            # Retourner des tableaux vides plutôt que d'appeler récursivement
+            return np.empty((0, *self.img_size, 3)), np.empty((0, *self.img_size, self.num_classes))
         return images, masks
 
     def on_epoch_end(self):
@@ -61,21 +105,37 @@ class DataGenerator(Sequence):
                 image = cv2.resize(image, self.img_size)
                 mask = cv2.resize(mask, self.img_size)
 
+                # Remapper les valeurs du masque pour les classes correctes
+                # 0 -> 0 (fond)
+                # 29 -> 1 (rouge converti en gris ~29)
+                # 149 -> 2 (vert converti en gris ~149)
+                remapped_mask = np.zeros_like(mask)
+                remapped_mask[mask == 0] = 0
+                remapped_mask[mask == 29] = 1
+                remapped_mask[mask == 149] = 2
+                
+                # Vérifier que les valeurs de masque sont dans la plage attendue
+                unique_values = np.unique(remapped_mask)
+                if np.max(unique_values) >= self.num_classes:
+                    print(f"Attention: Masque {mask_path} contient encore des valeurs inattendues après remappage: {unique_values}")
+                
                 # Convertir le masque en one-hot encoding
-                mask_one_hot = np.zeros((*self.img_size, self.num_classes), dtype=np.uint8)
+                mask_one_hot = np.zeros((*self.img_size, self.num_classes), dtype=np.float32)
                 for c in range(self.num_classes):
-                    mask_one_hot[:, :, c] = (mask == c).astype(np.uint8)
+                    mask_one_hot[:, :, c] = (remapped_mask == c).astype(np.float32)
 
                 images.append(image / 255.0)
                 masks.append(mask_one_hot)
 
-        images = np.array(images)
-        masks = np.array(masks)
+        images = np.array(images, dtype=np.float32)
+        masks = np.array(masks, dtype=np.float32)
         return images, masks
 
-# Define U-Net model
+# Architecture U-Net corrigée
 def unet_model(input_size=(512, 512, 3), num_classes=3):
     inputs = Input(input_size)
+    
+    # Encoder
     conv1 = Conv2D(64, 3, activation='relu', padding='same')(inputs)
     conv1 = Conv2D(64, 3, activation='relu', padding='same')(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
@@ -92,9 +152,11 @@ def unet_model(input_size=(512, 512, 3), num_classes=3):
     conv4 = Conv2D(512, 3, activation='relu', padding='same')(conv4)
     pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
 
+    # Bottleneck
     conv5 = Conv2D(1024, 3, activation='relu', padding='same')(pool4)
     conv5 = Conv2D(1024, 3, activation='relu', padding='same')(conv5)
 
+    # Decoder - Correction des bugs ici
     up6 = concatenate([UpSampling2D(size=(2, 2))(conv5), conv4], axis=-1)
     conv6 = Conv2D(512, 3, activation='relu', padding='same')(up6)
     conv6 = Conv2D(512, 3, activation='relu', padding='same')(conv6)
@@ -104,30 +166,68 @@ def unet_model(input_size=(512, 512, 3), num_classes=3):
     conv7 = Conv2D(256, 3, activation='relu', padding='same')(conv7)
 
     up8 = concatenate([UpSampling2D(size=(2, 2))(conv7), conv2], axis=-1)
-    conv8 = Conv2D(128, 3, activation='relu', padding='same')(up8)
+    # Correction: utiliser up8 au lieu de conv8 non défini
+    conv8 = Conv2D(128, 3, activation='relu', padding='same')(up8)  
     conv8 = Conv2D(128, 3, activation='relu', padding='same')(conv8)
 
     up9 = concatenate([UpSampling2D(size=(2, 2))(conv8), conv1], axis=-1)
     conv9 = Conv2D(64, 3, activation='relu', padding='same')(up9)
     conv9 = Conv2D(64, 3, activation='relu', padding='same')(conv9)
 
+    # Couche de sortie
     conv10 = Conv2D(num_classes, 1, activation='softmax')(conv9)
 
     model = Model(inputs=[inputs], outputs=[conv10])
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    
+    # Utilisation d'un taux d'apprentissage plus faible et clipping de gradient
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
+    
+    # Compilation avec métriques supplémentaires
+    model.compile(
+        optimizer=optimizer, 
+        loss=weighted_categorical_crossentropy(class_weights),
+        metrics=['accuracy', tf.keras.metrics.MeanIoU(num_classes=num_classes)]
+    )
+    
     return model
 
 def main():
-    # Create data generators
-    train_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height), num_classes=num_classes)
-    val_generator = DataGenerator(image_dir, ground_truth_dir, batch_size=1, img_size=(img_width, img_height), num_classes=num_classes, shuffle=False)
+    parser = argparse.ArgumentParser(description="Train U-Net model for segmentation")
+    parser.add_argument('--start-from-scratch', action='store_true', help="Start training from scratch and delete previous checkpoints")
+    parser.add_argument('--batch-size', type=int, default=1, help="Batch size for training")
+    parser.add_argument('--epochs', type=int, default=50, help="Number of epochs for training")
+    args = parser.parse_args()
 
-    # Create and train the model
+    if args.start_from_scratch:
+        if os.path.exists(CHECKPOINT_DIR):
+            shutil.rmtree(CHECKPOINT_DIR)
+        if os.path.exists(BEST_MODEL_DIR):
+            shutil.rmtree(BEST_MODEL_DIR)
+        print("[INFO] Starting from scratch and deleting previous checkpoints...")
+
+    # Création des générateurs de données
+    train_generator = DataGenerator(
+        train_image_dir, 
+        train_ground_truth_dir, 
+        batch_size=args.batch_size, 
+        img_size=(img_width, img_height), 
+        num_classes=num_classes
+    )
+    
+    val_generator = DataGenerator(
+        valid_image_dir, 
+        valid_ground_truth_dir, 
+        batch_size=args.batch_size, 
+        img_size=(img_width, img_height), 
+        num_classes=num_classes, 
+        shuffle=False
+    )
+
+    # Création du modèle
     model = unet_model(input_size=(img_width, img_height, 3), num_classes=num_classes)
+    model.summary()  # Affiche l'architecture du modèle
 
-    # ----------------------------
-    #   CHECKPOINT MANAGEMENT
-    # ----------------------------
+    # Gestion des checkpoints
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     os.makedirs(BEST_MODEL_DIR, exist_ok=True)
     checkpoint_prefix = os.path.join(CHECKPOINT_DIR, "ckpt.weights.h5")
@@ -139,37 +239,64 @@ def main():
     best_ckpt = tf.train.Checkpoint(model=model)
     best_manager = tf.train.CheckpointManager(best_ckpt, BEST_MODEL_DIR, max_to_keep=1)
 
-    if manager.latest_checkpoint:
+    if not args.start_from_scratch and manager.latest_checkpoint:
         ckpt.restore(manager.latest_checkpoint)
         print(f"[INFO] Restored from {manager.latest_checkpoint}")
     else:
         print("[INFO] Initializing from scratch...")
 
-    # Define callbacks for checkpointing
+    # Callbacks améliorés
     callbacks = [
+        # Sauvegarde du meilleur modèle
         tf.keras.callbacks.ModelCheckpoint(
             filepath=os.path.join(BEST_MODEL_DIR, 'best_model.h5'),
             save_best_only=True,
             monitor='val_loss',
-            mode='min'
+            mode='min',
+            verbose=1
         ),
+        # Sauvegarde régulière des poids
         tf.keras.callbacks.ModelCheckpoint(
             filepath=checkpoint_prefix,
             save_weights_only=True,
             monitor='val_loss',
             mode='min'
         ),
+        # Arrêt anticipé
         tf.keras.callbacks.EarlyStopping(
             monitor='val_loss',
+            patience=10,
+            restore_best_weights=True,
+            verbose=1
+        ),
+        # Réduction du taux d'apprentissage sur plateau
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.5,
             patience=5,
-            restore_best_weights=True
+            min_lr=1e-6,
+            verbose=1
+        ),
+        # Journal TensorBoard
+        tf.keras.callbacks.TensorBoard(
+            log_dir='./logs',
+            histogram_freq=1,
+            update_freq='epoch'
         )
     ]
 
-    model.fit(train_generator, epochs=5, validation_data=val_generator, callbacks=callbacks)
+    # Entraînement du modèle
+    history = model.fit(
+        train_generator, 
+        epochs=args.epochs,
+        validation_data=val_generator, 
+        callbacks=callbacks,
+        verbose=1
+    )
 
-    # Save the final model
+    # Sauvegarde du modèle final
     model.save('vertebrae_heart_segmentation_model.h5')
+    print("[INFO] Modèle final sauvegardé avec succès!")
 
 if __name__ == "__main__":
     main()
