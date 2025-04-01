@@ -131,6 +131,31 @@ class DataGenerator(Sequence):
         masks = np.array(masks, dtype=np.float32)
         return images, masks
 
+# Attention Gate
+def attention_gate(x, g, filters):
+    """Attention Gate module to focus on relevant features.
+    x: Skip connection features from encoder
+    g: Features from decoder
+    filters: Number of filters
+    """
+    # Theta_x for skip connection (encoder features)
+    theta_x = Conv2D(filters, 1, use_bias=True)(x)
+    
+    # Phi_g for gating signal from decoder
+    phi_g = Conv2D(filters, 1, use_bias=True)(g)
+    
+    # Combine signals (compatibility score)
+    f = tf.keras.layers.Activation('relu')(theta_x + phi_g)
+    
+    # Attention coefficient
+    psi_f = Conv2D(1, 1, use_bias=True)(f)
+    att_map = tf.keras.layers.Activation('sigmoid')(psi_f)
+    
+    # Attend to features
+    y = x * att_map
+    
+    return y
+
 # Architecture U-Net corrigée
 def unet_model(input_size=(512, 512, 3), num_classes=3):
     inputs = Input(input_size)
@@ -191,6 +216,94 @@ def unet_model(input_size=(512, 512, 3), num_classes=3):
     
     return model
 
+# Attention U-Net model
+def attention_unet_model(input_size=(512, 512, 3), num_classes=3):
+    """
+    Implementation of Attention U-Net for medical image segmentation
+    """
+    inputs = Input(input_size)
+    
+    # Encoder
+    conv1 = Conv2D(64, 3, activation='relu', padding='same')(inputs)
+    conv1 = Conv2D(64, 3, activation='relu', padding='same')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+
+    conv2 = Conv2D(128, 3, activation='relu', padding='same')(pool1)
+    conv2 = Conv2D(128, 3, activation='relu', padding='same')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+
+    conv3 = Conv2D(256, 3, activation='relu', padding='same')(pool2)
+    conv3 = Conv2D(256, 3, activation='relu', padding='same')(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+
+    conv4 = Conv2D(512, 3, activation='relu', padding='same')(pool3)
+    conv4 = Conv2D(512, 3, activation='relu', padding='same')(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+
+    # Bottleneck
+    conv5 = Conv2D(1024, 3, activation='relu', padding='same')(pool4)
+    conv5 = Conv2D(1024, 3, activation='relu', padding='same')(conv5)
+
+    # Decoder with attention gates
+    up6 = Conv2D(512, 2, activation='relu', padding='same')(UpSampling2D(size=(2, 2))(conv5))
+    # Apply attention gate to skip connection
+    att6 = attention_gate(conv4, up6, 512)
+    merge6 = concatenate([up6, att6], axis=3)
+    conv6 = Conv2D(512, 3, activation='relu', padding='same')(merge6)
+    conv6 = Conv2D(512, 3, activation='relu', padding='same')(conv6)
+
+    up7 = Conv2D(256, 2, activation='relu', padding='same')(UpSampling2D(size=(2, 2))(conv6))
+    # Apply attention gate to skip connection
+    att7 = attention_gate(conv3, up7, 256)
+    merge7 = concatenate([up7, att7], axis=3)
+    conv7 = Conv2D(256, 3, activation='relu', padding='same')(merge7)
+    conv7 = Conv2D(256, 3, activation='relu', padding='same')(conv7)
+
+    up8 = Conv2D(128, 2, activation='relu', padding='same')(UpSampling2D(size=(2, 2))(conv7))
+    # Apply attention gate to skip connection
+    att8 = attention_gate(conv2, up8, 128)
+    merge8 = concatenate([up8, att8], axis=3)
+    conv8 = Conv2D(128, 3, activation='relu', padding='same')(merge8)
+    conv8 = Conv2D(128, 3, activation='relu', padding='same')(conv8)
+
+    up9 = Conv2D(64, 2, activation='relu', padding='same')(UpSampling2D(size=(2, 2))(conv8))
+    # Apply attention gate to skip connection
+    att9 = attention_gate(conv1, up9, 64)
+    merge9 = concatenate([up9, att9], axis=3)
+    conv9 = Conv2D(64, 3, activation='relu', padding='same')(merge9)
+    conv9 = Conv2D(64, 3, activation='relu', padding='same')(conv9)
+
+    # Output layer
+    conv10 = Conv2D(num_classes, 1, activation='softmax')(conv9)
+
+    model = Model(inputs=[inputs], outputs=[conv10])
+    
+    # Use a lower learning rate and gradient clipping
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
+    
+    # Fixed weighted_categorical_crossentropy to avoid TF variable creation issues
+    def weighted_categorical_crossentropy_fixed(weights_list):
+        """Version compatible with tf.function"""
+        weights_tensor = tf.constant(weights_list)
+        
+        def loss(y_true, y_pred):
+            y_pred = y_pred / tf.reduce_sum(y_pred, axis=-1, keepdims=True)
+            y_pred = tf.clip_by_value(y_pred, K.epsilon(), 1 - K.epsilon())
+            loss = y_true * tf.math.log(y_pred) * weights_tensor
+            loss = -tf.reduce_sum(loss, -1)
+            return loss
+        
+        return loss
+    
+    # Compilation with metrics
+    model.compile(
+        optimizer=optimizer, 
+        loss=weighted_categorical_crossentropy_fixed(class_weights),
+        metrics=['accuracy', tf.keras.metrics.MeanIoU(num_classes=num_classes)]
+    )
+    
+    return model
+
 def main():
     parser = argparse.ArgumentParser(description="Train U-Net model for segmentation")
     parser.add_argument('--start-from-scratch', action='store_true', help="Start training from scratch and delete previous checkpoints")
@@ -223,8 +336,8 @@ def main():
         shuffle=False
     )
 
-    # Création du modèle
-    model = unet_model(input_size=(img_width, img_height, 3), num_classes=num_classes)
+    # Création du modèle (Attention U-Net)
+    model = attention_unet_model(input_size=(img_width, img_height, 3), num_classes=num_classes)
     model.summary()  # Affiche l'architecture du modèle
 
     # Gestion des checkpoints
