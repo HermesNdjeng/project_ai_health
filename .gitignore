@@ -8,3 +8,7 @@ filtered_data_png.zip
 requirements.txt
 labels/
 data/
+__pycache__/
+logs/
+.vscode/
+Valid/
