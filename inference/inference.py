@@ -8,7 +8,7 @@ import torchvision.models as models
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
-from logging_utils import logger  # Import the logger
+from utils.logging_utils import logger  # Import the logger
 
 def v_h_s(points):
     A, B, C, D, E, F = points.reshape(6, 2)

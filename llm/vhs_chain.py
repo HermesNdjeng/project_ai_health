@@ -4,7 +4,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 import os
-from logging_utils import logger
+from utils.logging_utils import logger
 from datetime import datetime
 
 from llm.vhs_schema import VHSInterpretation

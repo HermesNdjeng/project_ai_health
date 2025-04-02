@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from llm.vhs_chain import interpret_vhs
 import torch
-from inference import load_model, get_transform, visualize_prediction_measurements
+from inference.inference import load_model, get_transform, visualize_prediction_measurements
 import matplotlib.pyplot as plt
 
 torch.classes.__path__ = []  ##to avoid conflict with streamlit
@@ -109,7 +109,7 @@ elif st.session_state.page == 'image':
         # Run analysis
         with st.spinner("Processing radiograph..."):
             try:
-                model = load_model('best_model_efb7.pt')
+                model = load_model('models/best_model_efb7.pt')
                 transform = get_transform(resized_image_size=300)
                 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
                 
