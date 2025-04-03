@@ -5,6 +5,12 @@ import torch
 from inference.inference import load_model, get_transform, visualize_prediction_measurements
 import matplotlib.pyplot as plt
 
+# Import logger
+from utils.logging_utils import logger
+
+# Check if model exists, download if needed
+from utils.download_model import download_model
+
 torch.classes.__path__ = []  ##to avoid conflict with streamlit
 
 # Set page title and favicon
@@ -13,6 +19,19 @@ st.set_page_config(
     page_icon="❤️",
     layout="wide"
 )
+
+model_path = os.path.join('models', 'best_model_efb7.pt')
+if not os.path.exists(model_path):
+    logger.info(f"Model not found at {model_path}, initiating download from GitHub release")
+    with st.spinner("Downloading model file (this may take a few minutes)..."):
+        downloaded_path = download_model()
+        if downloaded_path:
+            logger.info(f"Model successfully downloaded to {downloaded_path}")
+            st.success("Model downloaded successfully!")
+        else:
+            logger.error("Failed to download model from GitHub release")
+            st.error("Failed to download model. Please download it manually.")
+            st.stop()
 
 # Initialize session state for navigation
 if 'page' not in st.session_state:
