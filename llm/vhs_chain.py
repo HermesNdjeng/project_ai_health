@@ -4,9 +4,12 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 import os
-from utils.logging_utils import logger
 from datetime import datetime
+import sys
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.logging_utils import logger
 from llm.vhs_schema import VHSInterpretation
 
 def vhs_interpreter_chain() -> Runnable[Any, VHSInterpretation]:

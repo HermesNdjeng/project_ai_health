@@ -2,6 +2,8 @@ import os
 import requests
 from tqdm import tqdm
 import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logging_utils import logger
 
 def download_model(force=False):
