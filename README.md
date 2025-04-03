@@ -108,6 +108,14 @@ The application has been tested with the following results:
 - LLM interpretation time: ~5.90 seconds
 - Total analysis time: <7 seconds per radiograph
 
+## 💻 Image from the app
+<img width="1470" alt="Capture d’écran 2025-04-03 à 09 36 21" src="https://github.com/user-attachments/assets/5d89b731-79c6-4b94-9704-d161e2155431" />
+<img width="1470" alt="Capture d’écran 2025-04-03 à 09 36 31" src="https://github.com/user-attachments/assets/4a802bff-e5cd-4e4a-ab82-050c436817f8" />
+<img width="1470" alt="Capture d’écran 2025-04-03 à 09 36 37" src="https://github.com/user-attachments/assets/072930a1-690e-4b69-8764-246d295663b7" />
+
+
+
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
