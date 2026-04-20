@@ -1,6 +1,7 @@
-import os 
-import pandas as pd
+import os
 import shutil
+
+import pandas as pd
 
 excel_files = "./VERTEBRAE_HEART_SCALES_ANNOTATIONS_MT.xlsx"
 annotated_images_folder = "C:/Users/nzooh/Downloads/OK_images/OK_images"

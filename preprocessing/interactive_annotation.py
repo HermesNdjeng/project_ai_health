@@ -1,7 +1,8 @@
+import os
+
 import cv2
 import numpy as np
 from segment_anything import SamPredictor, sam_model_registry
-import os
 
 # Load SAM model
 MODEL_TYPE = "vit_l"  # Choose model type: vit_b, vit_l, vit_h
@@ -15,6 +16,7 @@ IMAGE_DIR = "filtered_data_png/"  # Directory with input images
 OUTPUT_DIR = "labels/"  # Directory for YOLO annotations
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+
 def click_event(event, x, y, flags, params):
     """Callback function for mouse click."""
     global clicks
@@ -25,6 +27,7 @@ def click_event(event, x, y, flags, params):
         print("Finished annotating object.")
         cv2.destroyAllWindows()
 
+
 def mask_to_bbox(mask):
     """Convert a binary mask to bounding box."""
     y_indices, x_indices = np.where(mask)
@@ -34,6 +37,7 @@ def mask_to_bbox(mask):
     y_min, y_max = y_indices.min(), y_indices.max()
     return x_min, y_min, x_max, y_max
 
+
 def normalize_bbox(x_min, y_min, x_max, y_max, image_width, image_height):
     """Normalize bounding box for YOLO."""
     center_x = (x_min + x_max) / 2 / image_width
@@ -41,6 +45,7 @@ def normalize_bbox(x_min, y_min, x_max, y_max, image_width, image_height):
     width = (x_max - x_min) / image_width
     height = (y_max - y_min) / image_height
     return center_x, center_y, width, height
+
 
 # Interactive segmentation
 for image_name in os.listdir(IMAGE_DIR):
@@ -91,7 +96,9 @@ for image_name in os.listdir(IMAGE_DIR):
             cv2.waitKey(500)
 
         # Save YOLO annotations
-        annotation_file = os.path.join(OUTPUT_DIR, image_name.replace(".jpg", ".txt").replace(".png", ".txt"))
+        annotation_file = os.path.join(
+            OUTPUT_DIR, image_name.replace(".jpg", ".txt").replace(".png", ".txt")
+        )
         with open(annotation_file, "w") as f:
             f.write("\n".join(yolo_annotations))
 
