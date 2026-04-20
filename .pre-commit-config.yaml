@@ -1,0 +1,16 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.11
+    hooks:
+      - id: ruff              # linting (replaces flake8/isort/etc.)
+        args: [--fix]
+      - id: ruff-format       # formatting (replaces black)
+
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: poetry run pyright
+        language: system
+        types: [python]
+        pass_filenames: false  # pyright checks the whole project at once

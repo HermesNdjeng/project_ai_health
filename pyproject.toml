@@ -1,0 +1,73 @@
+[tool.poetry]
+name = "vhs-analyzer"
+version = "0.1.0"
+description = "Veterinary Heart Score (VHS) Analyzer — Flask API + Vue.js frontend"
+authors = ["HermesNdjeng <yanndjeng@yahoo.com>"]
+readme = "README.md"
+packages = []
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# Backend — Flask API
+flask = "^3.1"
+flask-cors = "^5.0"
+
+# ML inference
+torch = "^2.5"
+torchvision = "^0.20"
+numpy = "^1.26"
+pillow = "^11.0"
+matplotlib = "^3.10"
+opencv-python = "^4.10"
+
+# LLM chain
+langchain = "^0.3"
+langchain-core = "^0.3"
+langchain-openai = "^0.3"
+openai = "^1.69"
+pydantic = "^2.10"
+
+# Utilities
+python-dotenv = "^1.0"
+requests = "^2.32"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pre-commit = "^4.5.1"
+ruff = "^0.15.11"
+pyright = "^1.1.408"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["virtual_env/"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501", # line too long — handled by ruff-format
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyright]
+pythonVersion = "3.11"
+venvPath = "."
+venv = "virtual_env"
+exclude = ["virtual_env/"]
+reportMissingTypeStubs = false   # many ML libs lack stubs
+typeCheckingMode = "basic"       # start lenient; raise to "standard" later
