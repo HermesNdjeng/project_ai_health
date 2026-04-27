@@ -1,0 +1,5 @@
+outs:
+- md5: 0c53bc824535cbff65d01dc14001df39
+  size: 256942586
+  hash: md5
+  path: best_model_efb7.pt
