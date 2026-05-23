@@ -31,6 +31,7 @@ pydantic = "^2.10"
 # Utilities
 python-dotenv = "^1.0"
 requests = "^2.32"
+dvc = {extras = ["s3"], version = "^3.67.1"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"
