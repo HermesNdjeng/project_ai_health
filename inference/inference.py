@@ -12,6 +12,7 @@ from utils.logging_utils import logger  # Import the logger
 
 
 def v_h_s(points):
+    """Compute VHS score from 6 predicted keypoints (L, S, T axes)."""
     A, B, C, D, E, F = points.reshape(6, 2)
     AB = np.linalg.norm(A - B)
     CD = np.linalg.norm(C - D)
@@ -45,6 +46,7 @@ def load_model(checkpoint_path):
 
 
 def get_transform(resized_image_size):
+    """Build the inference transform pipeline (resize, normalize)."""
     transforms = []
     transforms.append(T.ToTensor())
     transforms.append(T.Resize(size=(resized_image_size, resized_image_size)))

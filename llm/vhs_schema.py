@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class VHSInterpretation(BaseModel):
     """Structured output for VHS interpretation."""
 
+    vhs_score: float = Field(description="The computed VHS score in vertebral body units")
     normal_range: str = Field(description="The normal VHS range for this animal type")
     interpretation: str = Field(
         description="Clinical interpretation (normal, enlarged, borderline)"

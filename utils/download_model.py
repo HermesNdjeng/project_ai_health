@@ -24,7 +24,7 @@ def download_model(force=False):
 
     # Set the model path and URL
     model_path = os.path.join(models_dir, "best_model_efb7.pt")
-    model_url = "https://github.com/HermesNdjeng/project_ai_health/releases/download/v1.0.0/best_model_efb7.pt"
+    model_url = os.environ["MODEL_URL"]
 
     # Check if model already exists
     if os.path.exists(model_path) and not force:
