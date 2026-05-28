@@ -110,13 +110,15 @@ def extract():
         l_value, s_value, t_value, vhs, image_b64 = _predict_from_image(
             temp_path, model, transform, device
         )
-        return jsonify({
-            "l_value": round(l_value, 2),
-            "s_value": round(s_value, 2),
-            "t_value": round(t_value, 2),
-            "vhs_score": round(vhs, 2),
-            "annotated_image": image_b64,
-        })
+        return jsonify(
+            {
+                "l_value": round(l_value, 2),
+                "s_value": round(s_value, 2),
+                "t_value": round(t_value, 2),
+                "vhs_score": round(vhs, 2),
+                "annotated_image": image_b64,
+            }
+        )
     except Exception as exc:
         logger.error(f"Extraction error: {exc}")
         return jsonify({"error": str(exc)}), 500
@@ -139,17 +141,21 @@ def analyze():
 
     try:
         interp = interpret_vhs(
-            l_value=payload.l_value, s_value=payload.s_value, t_value=payload.t_value,
+            l_value=payload.l_value,
+            s_value=payload.s_value,
+            t_value=payload.t_value,
             **patient.model_dump(),
         )
     except Exception as exc:
         logger.error(f"LLM error: {exc}")
         return jsonify({"error": str(exc)}), 500
 
-    return jsonify({
-        "vhs_score": round(interp.vhs_score, 2),
-        "interpretation": interp.model_dump(),
-    })
+    return jsonify(
+        {
+            "vhs_score": round(interp.vhs_score, 2),
+            "interpretation": interp.model_dump(),
+        }
+    )
 
 
 if __name__ == "__main__":

@@ -172,7 +172,7 @@ def interpret_vhs(
     total_time = (datetime.now() - llm_start_time).total_seconds()
     logger.info(f"VHS interpretation completed in {total_time:.2f} seconds")
 
-    result_dict['vhs_score'] = vhs_score
+    result_dict["vhs_score"] = vhs_score
     result = VHSInterpretation(**result_dict)
     return result
 
