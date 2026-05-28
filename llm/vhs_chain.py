@@ -14,16 +14,16 @@ from llm.vhs_schema import VHSInterpretation
 from utils.logging_utils import logger
 
 
-def vhs_interpreter_chain() -> Runnable[Any, VHSInterpretation]:
+def vhs_interpreter_chain() -> Runnable[Any, dict]:
     """Create a chain that provides VHS score interpretation.
 
     Returns:
         The VHS interpretation chain.
     """
     llm = ChatOpenAI(
-        model_name="gpt-4o",
+        model="gpt-4o",
         temperature=0.2,
-        response_format={"type": "json_object"},  # This is important!
+        response_format={"type": "json_object"},  # type: ignore
     )
 
     # Set up the output parser
@@ -33,7 +33,7 @@ def vhs_interpreter_chain() -> Runnable[Any, VHSInterpretation]:
     vhs_prompt = """You are a veterinary cardiology expert analyzing radiographic measurements of vertebral heart score (VHS).
 
 ## VHS Background:
-The Vertebral Heart Score (VHS) is a radiographic measurement that compares heart size to vertebral body length. 
+The Vertebral Heart Score (VHS) is a radiographic measurement that compares heart size to vertebral body length.
 - In dogs, the normal VHS is 9.7 ± 0.5 vertebrae (range: 8.7-10.7)
 - In cats, the normal VHS is 7.5 ± 0.3 vertebrae (range: 7.0-8.1)
 - The long axis (L) measurement runs from the carina to the cardiac apex
@@ -83,7 +83,7 @@ Your response should have the following format:
     )
 
     # Create and return the chain
-    chain: Runnable[Any, VHSInterpretation] = vhs_prompt_template | llm | vhs_parser
+    chain: Runnable[Any, dict] = vhs_prompt_template | llm | vhs_parser
     return chain
 
 
@@ -95,10 +95,10 @@ def interpret_vhs(
     s_value: float,
     t_value: float,
     animal_type: str,
-    breed: str = None,
-    age: float = None,
-    weight: float = None,
-    sex: str = None,
+    breed: str | None = None,
+    age: float | None = None,
+    weight: float | None = None,
+    sex: str | None = None,
 ) -> VHSInterpretation:
     """
     Interpret VHS score based on measurements and animal characteristics.
