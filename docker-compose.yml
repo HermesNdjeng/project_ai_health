@@ -1,5 +1,6 @@
 services:
   backend:
+    image: hermesndj/vhs-analyzer-backend:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
@@ -9,6 +10,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: hermesndj/vhs-analyzer-frontend:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
