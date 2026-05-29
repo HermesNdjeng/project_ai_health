@@ -15,6 +15,7 @@ from utils.download_model import download_model
 from utils.logging_utils import logger
 
 load_dotenv()
+
 matplotlib.use("Agg")
 app = Flask(__name__)
 
@@ -106,7 +107,7 @@ def extract():
     file.save(temp_path)
     try:
         model, transform = get_model()
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # type: ignore
         l_value, s_value, t_value, vhs, image_b64 = _predict_from_image(
             temp_path, model, transform, device
         )

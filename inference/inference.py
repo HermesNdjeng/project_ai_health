@@ -37,7 +37,7 @@ def load_model(checkpoint_path):
     model.classifier[1] = nn.Linear(in_features, 12)
 
     # Now load the checkpoint
-    model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device("cpu")))
+    model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device("cpu")))  # type: ignore
     model.eval()
 
     load_time = (datetime.now() - start_time).total_seconds()

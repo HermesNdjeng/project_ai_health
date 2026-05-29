@@ -6,7 +6,7 @@ from typing import Any
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq  # type: ignore
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,10 +20,9 @@ def vhs_interpreter_chain() -> Runnable[Any, dict]:
     Returns:
         The VHS interpretation chain.
     """
-    llm = ChatOpenAI(
-        model="gpt-4o",
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
         temperature=0.2,
-        response_format={"type": "json_object"},  # type: ignore
     )
 
     # Set up the output parser
@@ -87,7 +86,14 @@ Your response should have the following format:
     return chain
 
 
-COMMON_VHS_INTERPRETER_CHAIN = vhs_interpreter_chain()
+_chain: Runnable[Any, dict] | None = None
+
+
+def _get_chain() -> Runnable[Any, dict]:
+    global _chain
+    if _chain is None:
+        _chain = vhs_interpreter_chain()
+    return _chain
 
 
 def interpret_vhs(
@@ -153,7 +159,7 @@ def interpret_vhs(
     logger.info("Calling LLM chain for VHS interpretation")
     llm_start_time = datetime.now()
 
-    result_dict = COMMON_VHS_INTERPRETER_CHAIN.invoke(input_data)
+    result_dict = _get_chain().invoke(input_data)
 
     llm_time = (datetime.now() - llm_start_time).total_seconds()
     logger.info(f"LLM response received in {llm_time:.2f} seconds")

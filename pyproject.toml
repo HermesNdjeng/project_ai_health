@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Veterinary Heart Score (VHS) Analyzer — Flask API + Vue.js frontend"
 authors = ["HermesNdjeng <yanndjeng@yahoo.com>"]
 readme = "README.md"
+ package-mode = false
 packages = []
 
 [tool.poetry.dependencies]
@@ -25,8 +26,7 @@ opencv-python-headless = "^4.10"
 # LLM chain
 langchain = "^0.3"
 langchain-core = "^0.3"
-langchain-openai = "^0.3"
-openai = "^1.69"
+langchain-groq = "^0.3"
 pydantic = "^2.10"
 
 # Utilities
