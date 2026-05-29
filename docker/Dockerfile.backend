@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir poetry==2.1.2
+
+COPY pyproject.toml poetry.lock ./
+RUN poetry config virtualenvs.create false \
+    && poetry install --only main --no-root --no-interaction --no-ansi
+
+COPY app.py ./
+COPY llm/ ./llm/
+COPY inference/ ./inference/
+COPY utils/ ./utils/
+
+RUN mkdir -p models
+
+EXPOSE 8000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "app:app"]
