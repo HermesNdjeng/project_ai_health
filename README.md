@@ -1,130 +1,111 @@
-# VHS Analyzer - Veterinary Heart Score Interpretation Tool
+# VHS Analyzer — Veterinary Heart Score Interpretation Tool
 
-![VHS Analyzer](https://img.shields.io/badge/AI-Veterinary%20Medicine-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![Flask](https://img.shields.io/badge/Flask-3.1-lightgrey)
+![Vue.js](https://img.shields.io/badge/Vue.js-3-42b883)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ed)
 
-A sophisticated application that analyzes and interprets Vertebral Heart Score (VHS) measurements for veterinary cardiology. Combines computer vision with large language models to provide comprehensive clinical assessments of heart size in dogs and cats.
+A full-stack application that analyzes Vertebral Heart Score (VHS) measurements for veterinary cardiology. Combines a PyTorch CNN for radiograph analysis with an LLM for clinical interpretation.
 
-## 📋 Features
+## Features
 
-- **Dual Input Methods**:
-  - Upload radiographs for automatic VHS measurement
-  - Manual entry of L, S, and T values
-  
-- **Automated Analysis**:
-  - Computer vision detection of key cardiac measurement points 
-  - Accurate calculation of VHS using the formula: 6 * ((L + S) / T)
-  
-- **Comprehensive Interpretation**:
-  - Species and breed-specific normal ranges
-  - Clinical significance assessment
-  - Severity classification
-  - Potential associated conditions
-  - Detailed clinical explanations (by an LLM)
-  - Veterinary recommendations (by an LLM)
+- **Radiograph upload** — automatic extraction of L, S, T measurements via EfficientNet-B7
+- **Manual entry** — enter measurements directly without an image
+- **AI interpretation** — species and breed-specific clinical assessment powered by Llama 3.3 (Groq)
+- **Editable results** — modify or complete the AI-generated interpretation before export
+- **PDF export** — save the full analysis report as a PDF
 
-## 🧠 Technology Stack
+## Technology Stack
 
-- **Python 3.11+**
-- **Deep Learning**: PyTorch, EfficientNet-B7
-- **AI Language Model**: GPT-4o via LangChain
-- **Web Framework**: Streamlit
-- **Data Visualization**: Matplotlib
-- **Image Processing**: PIL, torchvision
+| Layer | Technology |
+|---|---|
+| Frontend | Vue.js 3, Vite, Nginx |
+| Backend | Flask 3, Gunicorn |
+| Deep Learning | PyTorch, EfficientNet-B7 |
+| LLM | Llama 3.3-70b via Groq + LangChain |
+| Containerization | Docker, Docker Compose |
 
-## 🔧 Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/vhs-analyzer.git
-   cd vhs-analyzer
-
-2. **Create a virtual environment**
-   ```bash
-   python -m venv virtual_env
-   source virtual_env/bin/activate  # On Windows: virtual_env\Scripts\activate
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-
-4. **Configure OpenAI API key**
-   ```bash
-    export OPENAI_API_KEY="your_api_key"
-
-5. **Model Download**
-   - The model will be automatically download when loading the app.
-   - You can also donwload it manually by running:
-   ```bash
-   python -m utils.download_model
-
-## 🚀 Usage
-
-1. Start the Streamlit application
-   ```bash
-    streamlit run web_app.py
-
-2. Using the application
-  - From the landing page, select either "Upload Image" or "Manual Entry"
-  - For image upload: Select animal type, provide optional details, upload a radiograph
-  - For manual entry: Enter L, S, and T measurements along with patient details
-  - Review the VHS calculation and clinical interpretation
-
-## 🔍 How It Works
+## How It Works
 
 ### Image Analysis
-1. A chest radiograph is processed through EfficientNet-B7
-2. The model detects 6 key points (3 pairs) representing:
-   - Long axis (L): From carina to cardiac apex
-   - Short axis (S): Perpendicular to L at the widest part of the heart
-   - Reference length (T): Standard vertebral length
+A chest radiograph is processed through EfficientNet-B7, which detects 6 key points representing:
+- **L** — long axis from carina to cardiac apex
+- **S** — short axis perpendicular to L at the widest part of the heart
+- **T** — reference vertebral length
 
 ### VHS Calculation
-- VHS = 6 * ((L + S) / T)
-- Normal ranges:
-  - Dogs: 9.7 ± 0.5 vertebrae (range: 8.7-10.7)
-  - Cats: 7.5 ± 0.3 vertebrae (range: 7.0-8.1)
+```
+VHS = 6 × ((L + S) / T)
+```
+Normal ranges:
+- Dogs: 9.7 ± 0.5 vertebrae (8.7–10.7)
+- Cats: 7.5 ± 0.3 vertebrae (7.0–8.1)
 
 ### Clinical Interpretation
-The GPT-4o model analyzes the measurements considering:
-- Animal type
-- Breed-specific variations
-- Age, weight, and sex
-- Deviation from normal ranges
+Llama 3.3-70b analyzes the VHS score considering animal type, breed, age, weight, and sex. It returns a structured report with normal range assessment, severity classification, possible conditions, and recommendations.
 
-The interpretation includes:
-- Normal range confirmation
-- Heart size assessment
-- Severity classification if enlarged
-- Potential conditions
-- Recommended follow-up actions
-- Detailed clinical explanation
+## Quick Start (Docker)
 
-## 📊 Performance
+The fastest way to run the app — no code required, just Docker and a `.env` file.
 
-The application has been tested with the following results:
-- Model loading time: ~1.42 seconds
-- CNN inference time: ~0.44 seconds
-- Image processing time: ~0.48 seconds
-- LLM interpretation time: ~5.90 seconds
-- Total analysis time: <7 seconds per radiograph
+```bash
+# 1. Get the compose file
+curl -O https://raw.githubusercontent.com/HermesNdjeng/project_ai_health/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/HermesNdjeng/project_ai_health/main/.env.example
 
-## 💻 Image from the app
-<img width="1470" alt="Capture d’écran 2025-04-03 à 09 36 21" src="https://github.com/user-attachments/assets/5d89b731-79c6-4b94-9704-d161e2155431" />
-<img width="1470" alt="Capture d’écran 2025-04-03 à 09 36 31" src="https://github.com/user-attachments/assets/4a802bff-e5cd-4e4a-ab82-050c436817f8" />
-<img width="1470" alt="Capture d’écran 2025-04-03 à 09 36 37" src="https://github.com/user-attachments/assets/072930a1-690e-4b69-8764-246d295663b7" />
+# 2. Configure your API keys
+cp .env.example .env
+# Edit .env and fill in GROQ_API_KEY and MODEL_URL
 
+# 3. Run
+docker compose up
+```
 
+The app is available at [http://localhost](http://localhost).
 
+## Local Development
 
-## 📄 License
+**Prerequisites:** Python 3.11+, Poetry, Node.js 20+
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+```bash
+# Clone
+git clone https://github.com/HermesNdjeng/project_ai_health.git
+cd project_ai_health
 
-## 🙏 Acknowledgments
+# Backend
+poetry install
+cp .env.example .env  # fill in your keys
+python app.py
 
-- The EfficientNet implementation is based on VHS reference values based on standard veterinary cardiology literature
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in:
+
+| Variable | Description |
+|---|---|
+| `GROQ_API_KEY` | API key from [console.groq.com](https://console.groq.com) |
+| `MODEL_URL` | Direct download URL for the `.pt` model file |
+
+## Running Tests
+
+```bash
+pytest tests/ -v
+```
+
+## Screenshots
+
+<!-- Add screenshots of the app here -->
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-*This project was developed as part of the AI for Health course at Aivancity.*
-
+*Developed as part of the AI for Health course at Aivancity.*
