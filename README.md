@@ -7,6 +7,12 @@
 
 A full-stack application that analyzes Vertebral Heart Score (VHS) measurements for veterinary cardiology. Combines a PyTorch CNN for radiograph analysis with an LLM for clinical interpretation.
 
+
+<!-- Add screenshots of the app here -->
+<img width="1210" height="836" alt="Screenshot 2026-05-29 at 17 16 36" src="https://github.com/user-attachments/assets/639a0e42-65fa-4230-9431-f706edf26f3c" />
+<img width="967" height="812" alt="Screenshot 2026-05-29 at 17 17 28" src="https://github.com/user-attachments/assets/a5229138-cec6-4353-866a-427c1983541c" />
+<img width="1042" height="844" alt="Screenshot 2026-05-29 at 17 17 49" src="https://github.com/user-attachments/assets/edfbd5ca-d9e1-4f85-b1b0-5e7d0efffe3b" />
+
 ## Features
 
 - **Radiograph upload** — automatic extraction of L, S, T measurements via EfficientNet-B7
@@ -98,9 +104,7 @@ Copy `.env.example` to `.env` and fill in:
 pytest tests/ -v
 ```
 
-## Screenshots
 
-<!-- Add screenshots of the app here -->
 
 ## License
 
