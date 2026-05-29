@@ -1,5 +1,5 @@
 <template>
-  <section class="results">
+  <section class="results" ref="panelRef">
     <!-- Measurements summary -->
     <div class="card measurements">
       <h3>Measurements</h3>
@@ -62,15 +62,21 @@
       <h3>Detailed Clinical Explanation</h3>
       <p>{{ interp.detailed_explanation }}</p>
     </div>
+
+    <button v-show="!exporting" class="btn-export" @click="exportPdf">Save as PDF</button>
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import html2pdf from 'html2pdf.js'
 
 const props = defineProps({
   result: { type: Object, required: true },
 })
+
+const panelRef = ref(null)
+const exporting = ref(false)
 
 const interp = computed(() => props.result.interpretation)
 
@@ -80,6 +86,22 @@ const severityClass = computed(() => {
   if (text.includes('borderline')) return 'status-borderline'
   return 'status-abnormal'
 })
+
+async function exportPdf() {
+  exporting.value = true
+  await nextTick()
+  await html2pdf()
+    .set({
+      margin: 10,
+      filename: `vhs-report-${Date.now()}.pdf`,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    })
+    .from(panelRef.value)
+    .save()
+  exporting.value = false
+}
 </script>
 
 <style scoped>
@@ -155,5 +177,24 @@ h3 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.btn-export {
+  align-self: flex-start;
+  padding: 0.6rem 1.5rem;
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-export:hover { background: #1e293b; }
+
+@media print {
+  .no-print { display: none; }
 }
 </style>
